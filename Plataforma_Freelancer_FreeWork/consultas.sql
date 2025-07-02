@@ -472,3 +472,85 @@ BEGIN
     );
 END;
 /
+-- CREATE OR REPLACE TRIGGER (COMANDO)
+-- Trigger de comando que audita operações DML na tabela Projeto
+CREATE OR REPLACE TRIGGER trg_auditar_projetos
+BEFORE INSERT OR UPDATE OR DELETE ON Projeto
+DECLARE
+    v_operacao VARCHAR2(10);
+BEGIN
+    IF INSERTING THEN
+        v_operacao := 'INSERT';
+    ELSIF UPDATING THEN
+        v_operacao := 'UPDATE';
+    ELSIF DELETING THEN
+        v_operacao := 'DELETE';
+    END IF;
+    
+    DBMS_OUTPUT.PUT_LINE('Operação ' || v_operacao || ' na tabela Projeto em ' || TO_CHAR(SYSDATE, 'DD/MM/YYYY HH24:MI:SS'));
+END;
+/
+
+-- Testando o trigger de comando
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('--- TESTANDO TRIGGER DE COMANDO ---');
+    -- Inserção (disparará o trigger)
+    INSERT INTO Projeto VALUES (seq_projeto.NEXTVAL, '22222222222', 'Projeto Teste Trigger', 'Descrição teste.', SYSDATE, SYSDATE + 10, 500.00, 'Aberto');
+    
+    -- Atualização (disparará o trigger)
+    UPDATE Projeto SET ValorEstimado = 550 WHERE Titulo = 'Projeto Teste Trigger';
+    
+    -- Exclusão (disparará o trigger)
+    DELETE FROM Projeto WHERE Titulo = 'Projeto Teste Trigger';
+    
+    COMMIT;
+END;
+/
+
+
+-- CREATE OR REPLACE TRIGGER (LINHA)
+-- Trigger de linha que registra histórico de alterações na tabela Proposta
+CREATE OR REPLACE TRIGGER trg_historico_propostas
+AFTER UPDATE OF ValorProposto, PrazoProposto, Status ON Proposta
+FOR EACH ROW
+BEGIN
+    -- Verifica se houve mudança no valor proposto
+    IF :OLD.ValorProposto != :NEW.ValorProposto THEN
+        DBMS_OUTPUT.PUT_LINE('Proposta ' || :NEW.IDProposta_PK || 
+                            ': Valor alterado de ' || :OLD.ValorProposto || 
+                            ' para ' || :NEW.ValorProposto);
+    END IF;
+    
+    -- Verifica se houve mudança no prazo proposto
+    IF :OLD.PrazoProposto != :NEW.PrazoProposto THEN
+        DBMS_OUTPUT.PUT_LINE('Proposta ' || :NEW.IDProposta_PK || 
+                            ': Prazo alterado de ' || TO_CHAR(:OLD.PrazoProposto, 'DD/MM/YYYY') || 
+                            ' para ' || TO_CHAR(:NEW.PrazoProposto, 'DD/MM/YYYY'));
+    END IF;
+    
+    -- Verifica se houve mudança no status
+    IF :OLD.Status != :NEW.Status THEN
+        DBMS_OUTPUT.PUT_LINE('Proposta ' || :NEW.IDProposta_PK || 
+                            ': Status alterado de "' || :OLD.Status || 
+                            '" para "' || :NEW.Status || '"');
+    END IF;
+END;
+/
+
+-- Testando o trigger de linha
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TESTANDO TRIGGER DE LINHA ---');
+    -- Atualizando valor e status (disparará o trigger para cada linha afetada)
+    UPDATE Proposta 
+    SET ValorProposto = ValorProposto * 1.1, 
+        Status = 'Aceita'
+    WHERE IDProposta_PK IN (1, 2);
+    
+    -- Atualizando prazo (disparará o trigger)
+    UPDATE Proposta
+    SET PrazoProposto = PrazoProposto + 5
+    WHERE IDProposta_PK = 3;
+    
+    COMMIT;
+END;
+/
